@@ -1,0 +1,19 @@
+# Binaries and build output
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go build cache / test cache
+.cache/
+*.test
+
+# IDE/editor metadata
+.idea/
+.vscode/
+*.swp
+
+# Local environment overrides
+go.env
+
