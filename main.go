@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/consensys/gnark-crypto/ecc"
 	"github.com/consensys/gnark/backend/groth16"
@@ -23,7 +24,7 @@ func (circuit *AgeCircuit) Define(api frontend.API) error {
 }
 
 func main() {
-	fmt.Println("ZAGE 프로젝트 시동 중")
+	fmt.Println("키 생성 및 저장 시작")
 
 	var circuit AgeCircuit
 	ccs, err := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
@@ -31,38 +32,45 @@ func main() {
 		log.Fatal("회로 컴파일 실패:", err)
 	}
 
+	// 증명 키(PK)와 검증 키(VK) 생성
 	pk, vk, err := groth16.Setup(ccs)
 	if err != nil {
 		log.Fatal("Setup 실패:", err)
 	}
 
-	witness, err := frontend.NewWitness(&AgeCircuit{
+	// 증명 키 저장
+	pkFile, _ := os.Create("zage.pk")
+	pk.WriteTo(pkFile)
+	pkFile.Close()
+	fmt.Println("증명 키(zage.pk) 저장 완료!")
+
+	// 검증 키(Verifying Key) 저장
+	vkFile, _ := os.Create("zage.vk")
+	vk.WriteTo(vkFile)
+	vkFile.Close()
+	fmt.Println("검증 키(zage.vk) 저장 완료")
+
+	// 5. 테스트
+	fmt.Println("\n--- [테스트: 저장된 키로 증명 해보기] ---")
+
+	// 예시: 2005년생(20세)
+	witness, _ := frontend.NewWitness(&AgeCircuit{
 		CurrentYear: 2025,
 		LimitAge:    19,
 		BirthYear:   2005,
 	}, ecc.BN254.ScalarField())
-	if err != nil {
-		log.Fatal("비공개 위트니스 생성 실패:", err)
-	}
 
-	proof, err := groth16.Prove(ccs, pk, witness)
-	if err != nil {
-		log.Fatal("증명 생성 실패:", err)
-	}
-	fmt.Println("성인 인증 증명서 생성 완료 (생년월일은 숨겨짐)")
+	// 증명 생성
+	proof, _ := groth16.Prove(ccs, pk, witness)
 
-	publicWitness, err := frontend.NewWitness(&AgeCircuit{
+	// 검증
+	publicWitness, _ := frontend.NewWitness(&AgeCircuit{
 		CurrentYear: 2025,
 		LimitAge:    19,
 	}, ecc.BN254.ScalarField(), frontend.PublicOnly())
-	if err != nil {
-		log.Fatal("공개 위트니스 생성 실패:", err)
-	}
 
 	err = groth16.Verify(proof, vk, publicWitness)
 	if err == nil {
-		fmt.Println("검증 성공! 이 사용자는 성인이 확실합니다.")
-	} else {
-		fmt.Println("검증 실패! 거짓말쟁이거나 미성년자입니다.")
+		fmt.Println("🎉 테스트 성공: 로직에 문제 없습니다.")
 	}
 }
