@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>ZAGE - 성인인증 데모</title>
+    <script src="wasm_exec.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; }
+        .box { border: 1px solid #ddd; padding: 20px; border-radius: 8px; margin-top: 20px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        #status { margin-top: 10px; font-weight: bold; color: green; }
+        #proofResult { word-break: break-all; background: #f0f0f0; padding: 10px; font-family: monospace; font-size: 12px; display: none;}
+    </style>
+</head>
+<body>
+    <h1>🔒 ZAGE: 영지식 성인인증</h1>
+    <p>서버에 내 생년월일을 보내지 않고, 성인임을 증명합니다.</p>
+
+    <div class="box">
+        <h3>1. 정보 입력 (브라우저 내부에서만 처리됨)</h3>
+        <label>태어난 연도: </label>
+        <input type="number" id="birthYear" value="2000" placeholder="예: 2005">
+        <br><br>
+        <button onclick="runZKP()">🛡️ 증명서 생성하기</button>
+        <div id="status"></div>
+    </div>
+
+    <div class="box" id="proofBox" style="display:none;">
+        <h3>2. 생성된 영지식 증명 (Proof)</h3>
+        <p>이 암호문만 서버로 전송됩니다. (생년월일 X)</p>
+        <div id="proofResult"></div>
+    </div>
+
+    <script>
+        // 1. Go Wasm 로딩하기
+        const go = new Go();
+        WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject).then((result) => {
+            go.run(result.instance);
+            console.log("Wasm Loaded!");
+            document.getElementById("status").innerText = "시스템 준비 완료 (Wasm Loaded)";
+        });
+
+        // 2. 버튼 누르면 실행되는 함수
+        function runZKP() {
+            const birth = document.getElementById("birthYear").value;
+            const currentYear = 2025;
+            const limitAge = 19;
+
+            document.getElementById("status").innerText = "⏳ 증명 생성 중... (엄청난 수학 계산 중)";
+            document.getElementById("status").style.color = "orange";
+
+            // 약간의 딜레이를 주어 UI가 멈추지 않게 함
+            setTimeout(() => {
+                // Go 함수 호출! (verifyAgeZKP)
+                // Go 코드에서 js.Global().Set("verifyAgeZKP", ...) 했던 그 이름입니다.
+                const proof = verifyAgeZKP(currentYear, limitAge, parseInt(birth));
+
+                if (proof.startsWith("Error")) {
+                    alert(proof);
+                    document.getElementById("status").innerText = "❌ 실패";
+                } else {
+                    document.getElementById("status").innerText = "✅ 증명 생성 성공!";
+                    document.getElementById("status").style.color = "green";
+                    
+                    document.getElementById("proofBox").style.display = "block";
+                    document.getElementById("proofResult").style.display = "block";
+                    document.getElementById("proofResult").innerText = proof;
+                    
+                    alert("성공! 이 긴 암호문이 바로 '성인이라는 증거'입니다.");
+                }
+            }, 100);
+        }
+    </script>
+</body>
+</html>
